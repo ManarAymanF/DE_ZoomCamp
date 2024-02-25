@@ -1,0 +1,47 @@
+version: '3'
+
+services:
+  pgdatabase:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=root
+      - POSTGRES_PASSWORD=root
+      - POSTGRES_DB=ny_taxi
+    volumes:
+      - "./ny_taxi_postgres_data:/var/lib/postgresql/data:rw"
+    ports:
+      - "5432:5432"
+    restart: always
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@admin.com
+      - PGADMIN_DEFAULT_PASSWORD=root
+    ports:
+      - "8081:80"
+    restart: always
+
+  zones_import:
+    build:
+      context: .
+      dockerfile: Dockerfile_zones
+    depends_on:
+      - pgdatabase
+    networks:
+      - default
+    volumes:
+      - "./:/app"
+    entrypoint: ["python", "import_zones.py", "--user=root", "--password=root", "--host=pgdatabase", "--port=5432", "--db=ny_taxi", "--table_name=zones", "--url=https://d37ci6vzurychx.cloudfront.net/misc/taxi+_zone_lookup.csv"]
+
+  taxi_import:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - pgdatabase
+    networks:
+      - default
+    volumes:
+      - "./:/app"
+    entrypoint: ["python", "import_data.py", "--user=root", "--password=root", "--host=pgdatabase", "--port=5432", "--db=ny_taxi", "--table_name=yellow_taxi_trips", "--url=https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2023-01.parquet"]
